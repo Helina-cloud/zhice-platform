@@ -29,6 +29,29 @@ def without_empty_openai_env_keys():
         os.environ.update(popped)
 
 
+@contextmanager
+def openai_env_for_embedding_client(settings: Settings):
+    """
+    构建 OpenAIEmbeddings 时：部分 OpenAI SDK 会优先读环境里的 OPENAI_API_KEY，
+    忽略构造函数里的 api_key=EMBEDDING_API_KEY。云端同时配 DeepSeek 对话 + 云雾嵌入时，
+    会把 DeepSeek 密钥发给 yunwu → 401；本地若未设 OPENAI_API_KEY 则不会出现。
+
+    已单独配置 EMBEDDING_API_KEY 时，在构造嵌入客户端期间暂时移出 OPENAI_API_KEY / DEEPSEEK_API_KEY。
+    """
+    popped: dict[str, str] = {}
+    explicit_embed = bool((settings.embedding_api_key or "").strip())
+    keys = ("OPENAI_API_KEY", "DEEPSEEK_API_KEY")
+    if explicit_embed:
+        for key in keys:
+            if key in os.environ:
+                popped[key] = os.environ.pop(key)
+    try:
+        with without_empty_openai_env_keys():
+            yield
+    finally:
+        os.environ.update(popped)
+
+
 def normalize_openai_compat_base(url: str | None) -> str | None:
     """去掉首尾空白与末尾 `/`，减少部分网关对 `.../v1` vs `.../v1/` 处理不一致的问题。"""
     if not url:

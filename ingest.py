@@ -110,6 +110,8 @@ def ingest(force_rebuild: bool = False) -> int:
                 "• Secrets / .env 里是否真有顶层键 `EMBEDDING_API_KEY`、`EMBEDDING_API_BASE`（嵌套节须展开成这类名字，见 deploy_streamlit_cloud.txt）。\n"
                 "• Base 一般为 OpenAI 兼容服务的根，例如 `https://api.openai.com/v1`（末尾 `/v1` 常需要）。\n"
                 "• 密钥是否对应「嵌入」权限；不要把 DeepSeek 聊天密钥填进 OpenAI 嵌入。\n"
+                "• 若同时配置了对话用 `OPENAI_API_KEY`（DeepSeek）与 `EMBEDDING_API_KEY`（云雾）："
+                "部分 SDK 会误用环境里的对话密钥发嵌入请求；请拉取最新代码后 **Redeploy**（已做嵌入调用时的环境隔离）。\n"
                 "• 本地 ingest 正常而仅 Streamlit Cloud 报 401：在 Secrets 增加 "
                 "`OPENAI_HTTP_TRUST_ENV=false`，排除托管环境里 HTTP(S)_PROXY 干扰鉴权头；保存后 **Redeploy**。\n"
                 "• 部分中转 API 会按**出口 IP**限制：家用网络能通过，数据中心出口可能被拒（有时也表现为 401）。"

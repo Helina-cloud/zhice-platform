@@ -2,9 +2,37 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from langchain_core.embeddings import Embeddings
 
 from config import get_settings
+
+if TYPE_CHECKING:
+    from config import Settings
+
+
+class _IsolateChatKeysEmbeddings(Embeddings):
+    """
+    已配置 EMBEDDING_API_KEY 时，每次嵌入请求仍可能被底层 SDK 读 os.environ['OPENAI_API_KEY']
+    （对话用 DeepSeek），导致请求发到云雾却带上错误密钥 → 401。在每次 embed 调用期间暂时移出对话用环境变量。
+    """
+
+    def __init__(self, inner: Embeddings, settings: Settings) -> None:
+        self._inner = inner
+        self._settings = settings
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        from openai_http import openai_env_for_embedding_client
+
+        with openai_env_for_embedding_client(self._settings):
+            return self._inner.embed_documents(texts)
+
+    def embed_query(self, text: str) -> list[float]:
+        from openai_http import openai_env_for_embedding_client
+
+        with openai_env_for_embedding_client(self._settings):
+            return self._inner.embed_query(text)
 
 
 def _is_deepseek_base(url: str | None) -> bool:
@@ -66,8 +94,8 @@ def build_embeddings() -> Embeddings:
 
     from openai_http import (
         normalize_openai_compat_base,
+        openai_env_for_embedding_client,
         openai_sync_http_client,
-        without_empty_openai_env_keys,
     )
 
     http_client = openai_sync_http_client(settings)
@@ -77,5 +105,8 @@ def build_embeddings() -> Embeddings:
         "base_url": normalize_openai_compat_base(eb),
         "http_client": http_client,
     }
-    with without_empty_openai_env_keys():
-        return OpenAIEmbeddings(**kw)
+    with openai_env_for_embedding_client(settings):
+        inner = OpenAIEmbeddings(**kw)
+    if (settings.embedding_api_key or "").strip():
+        return _IsolateChatKeysEmbeddings(inner, settings)
+    return inner
