@@ -73,11 +73,21 @@ def ingest(force_rebuild: bool = False) -> int:
     except Exception as e:
         err = str(e).lower()
         if "404" in err or "notfound" in err.replace(" ", ""):
+            s = get_settings()
+            _k, eff_base = s.embedding_llm_params()
+            host = urlparse(eff_base or "").netloc or "（未能解析 base）"
+            env_chat_base = (s.openai_api_base or "").strip()
+            env_chat_host = urlparse(env_chat_base).netloc if env_chat_base else ""
             raise RuntimeError(
-                "嵌入接口返回 404：多见于对话用了 DeepSeek，却把 embeddings 请求发到同一 base URL，"
-                "或 EMBEDDING_MODEL 在当前网关不存在。\n"
-                "处理：在 .env 设置 EMBEDDING_API_BASE + EMBEDDING_API_KEY 指向提供 embeddings 的服务，"
-                "或设置 EMBEDDING_PROVIDER=huggingface 并 pip install sentence-transformers。"
+                "嵌入接口返回 404：常见原因：\n"
+                "1) 请求实际打到了 **DeepSeek**（api.deepseek.com 等）：对话的 `OPENAI_API_BASE` 被 LangChain "
+                "通过环境变量混进 OpenAIEmbeddings。请 **Redeploy** 含「嵌入时暂时移出 OPENAI_API_BASE」"
+                "的代码版本。\n"
+                "2) `EMBEDDING_MODEL` 在当前网关（云雾等）不存在或名称不同，请对照服务商文档改名。\n\n"
+                f"【诊断·不含密钥】配置解析出的嵌入 base 主机：{host}；"
+                f"对话侧 OPENAI_API_BASE 主机：{env_chat_host or '（未设置）'}\n"
+                "若前者像 deepseek 而后者也是 deepseek，属第 1 类；若前者为云雾但仍 404，多为第 2 类。\n"
+                "处理：核对 `EMBEDDING_API_BASE` + `EMBEDDING_API_KEY`，或设 `EMBEDDING_PROVIDER=huggingface`。"
             ) from e
         if (
             "429" in err

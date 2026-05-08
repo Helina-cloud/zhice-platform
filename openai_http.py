@@ -32,15 +32,16 @@ def without_empty_openai_env_keys():
 @contextmanager
 def openai_env_for_embedding_client(settings: Settings):
     """
-    构建 OpenAIEmbeddings 时：部分 OpenAI SDK 会优先读环境里的 OPENAI_API_KEY，
-    忽略构造函数里的 api_key=EMBEDDING_API_KEY。云端同时配 DeepSeek 对话 + 云雾嵌入时，
-    会把 DeepSeek 密钥发给 yunwu → 401；本地若未设 OPENAI_API_KEY 则不会出现。
+    已单独配置 EMBEDDING_API_KEY 时，在构造 / 调用 OpenAIEmbeddings 期间暂时移出对话用环境变量：
 
-    已单独配置 EMBEDDING_API_KEY 时，在构造嵌入客户端期间暂时移出 OPENAI_API_KEY / DEEPSEEK_API_KEY。
+    - OPENAI_API_KEY / DEEPSEEK_API_KEY：否则部分 SDK 会误用对话密钥（→ 401）。
+    - OPENAI_API_BASE：LangChain OpenAIEmbeddings 的 base_url 字段带 `from_env("OPENAI_API_BASE")`；
+      若环境仍为 DeepSeek，可能与传入的 `base_url=EMBEDDING_API_*` 混用，请求发到 api.deepseek.com
+      的 /embeddings → 404。
     """
     popped: dict[str, str] = {}
     explicit_embed = bool((settings.embedding_api_key or "").strip())
-    keys = ("OPENAI_API_KEY", "DEEPSEEK_API_KEY")
+    keys = ("OPENAI_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_API_BASE")
     if explicit_embed:
         for key in keys:
             if key in os.environ:

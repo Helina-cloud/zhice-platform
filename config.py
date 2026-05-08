@@ -14,11 +14,11 @@ class Settings(BaseSettings):
         env_file=_PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
-        # 系统里若存在空的 EMBEDDING_API_BASE=，否则会盖住 .env 里的正确值并回落到 DeepSeek
+        # 系统里若存在空的 EMBEDDING_API_BASE=，否则会盖住 .env 里的正确值并回落到对话用 OPENAI_API_BASE
         env_ignore_empty=True,
     )
 
-    # 对话与嵌入均走 OpenAI 兼容协议。DeepSeek：OPENAI_API_BASE=https://api.deepseek.com ，CHAT_MODEL=deepseek-chat 等。
+    # 对话与嵌入均走 OpenAI 兼容协议（默认官方 https://api.openai.com/v1 等；亦兼容其它网关）。
     openai_api_key: str = Field(
         default="",
         validation_alias=AliasChoices("OPENAI_API_KEY", "DEEPSEEK_API_KEY"),
@@ -30,10 +30,10 @@ class Settings(BaseSettings):
         default="text-embedding-3-small",
         validation_alias="EMBEDDING_MODEL",
     )
-    # 嵌入单独走其他兼容网关时使用（例如对话用 DeepSeek，向量用 OpenAI 兼容的嵌入服务）
+    # 嵌入单独走其他兼容网关时使用（不设则与对话共用 OPENAI_API_KEY / OPENAI_API_BASE）
     embedding_api_key: str | None = Field(default=None, validation_alias="EMBEDDING_API_KEY")
     embedding_api_base: str | None = Field(default=None, validation_alias="EMBEDDING_API_BASE")
-    # openai：OpenAI 兼容 embeddings API；huggingface：本地 sentence-transformers（对话可用 DeepSeek）
+    # openai：OpenAI 兼容 embeddings API；huggingface：本地 sentence-transformers
     embedding_provider: str = Field(default="openai", validation_alias="EMBEDDING_PROVIDER")
     huggingface_embedding_model: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",

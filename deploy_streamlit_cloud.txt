@@ -13,42 +13,36 @@
 
 5) App secrets（必须是合法 TOML，否则会提示 Invalid format）
 
-   可直接粘贴下面模板（英文双引号；冒号后空格；每行一条；不要中文标点引号）：
+   推荐：对话与嵌入均用 OpenAI，同一密钥（不必再配 EMBEDDING_API_*）：
 
-   OPENAI_API_KEY = "paste-your-key-here"
-   OPENAI_API_BASE = "https://api.deepseek.com"
-   CHAT_MODEL = "deepseek-chat"
-   EMBEDDING_PROVIDER = "huggingface"
+   OPENAI_API_KEY = "sk-你的OpenAI密钥"
+   OPENAI_API_BASE = "https://api.openai.com/v1"
+   CHAT_MODEL = "gpt-4o-mini"
+   EMBEDDING_PROVIDER = "openai"
+   EMBEDDING_MODEL = "text-embedding-3-small"
 
    注意：
    - 字符串必须用英文双引号 "..."，不要用中文引号 「」 "" ''
    - 不要用 export KEY=... 这种 shell 写法
    - 密钥里若有双引号，整段密钥改用单引号包裹：OPENAI_API_KEY = 'sk-..."...'
    - 不要在句尾加逗号；不要用 # 注释写在半截引号里
-   - 不要写 OPENAI_API_KEY = ""（空字符串仍会生效）；不用对话密钥时请删掉该行，
-     勿留占位空串，否则会干扰嵌入时的 Authorization（云端嵌入易报 401）。
+   - 不要写 OPENAI_API_KEY = "" 占位；不用时请删掉该行
 
-   嵌入（二选一）：
-   - 走云端 OpenAI 兼容嵌入：顶层键名必须为 `EMBEDDING_API_KEY`、`EMBEDDING_API_BASE`
-     （例如 Base = "https://api.openai.com/v1"）。若写在 TOML 节里，须能展开成上述环境变量名
-     （如 [embedding] 下 api_key → EMBEDDING_API_KEY）。
-   - 走本地向量：设 `EMBEDDING_PROVIDER = "huggingface"`；仅 DeepSeek 聊天且未单独配嵌入密钥时，
-     程序也会自动改用 HuggingFace。
+   嵌入（可选）：
+   - 与上面共用 OpenAI：不设 `EMBEDDING_API_KEY` / `EMBEDDING_API_BASE` 即可。
+   - 嵌入走另一兼容网关：再设顶层键 `EMBEDDING_API_KEY`、`EMBEDDING_API_BASE`。
+   - 无 OpenAI 嵌入额度：设 `EMBEDDING_PROVIDER = "huggingface"`（需依赖 sentence-transformers）。
 
    保存后重新 Deploy。应用启动时会：
    - 把这些变量注入环境变量（inject_streamlit_secrets）
    - 若 data/vector_db 不存在，自动跑一次 ingest
 
-6) 刷新页面重试。若出现 503：多为上游 LLM/中转繁忙，与向量库无关，稍后重试或换模型。
+6) 刷新页面重试。若出现 503：多为上游 LLM 繁忙，稍后重试或换模型。
 
 7) 本地调试仍用：streamlit run streamlit_app.py
 
-8) 若本地 `python ingest.py` 正常，但云端嵌入报 401：
-   - 逐项对照「本地 .env」与「App Secrets」：键名须一致（如 EMBEDDING_API_KEY），值须与本地相同；
-     改 Secrets 后须 **Redeploy**，不要只刷新页面。
-   - 仓库根目录 `runtime.txt` 与 Cloud Advanced → Python version 一致（避免依赖版本漂移）。
-   - 新版已在注入 Secrets 时去掉首尾空格与 UTF-8 BOM；仍失败时在云雾控制台核对密钥与余额。
-   - 可在 Secrets 增加一行：`OPENAI_HTTP_TRUST_ENV = false`（布尔型，见 TOML），避免托管环境代理变量干扰；
-     部署后看页面错误里的诊断行 `OPENAI_HTTP_TRUST_ENV=...` 是否为 False。
-   - 若仍 401：部分中转商限制数据中心出口 IP，家用网络能通过、云端不能；可改用 `EMBEDDING_PROVIDER=huggingface`
-     或向中转商确认云端是否可用。
+8) 若云端 ingest 报错（401 / 404 等）：
+   - 对照仓库根目录 `.env.example` 与 App Secrets，改完后 **Redeploy**（不要只刷新页面）。
+   - `runtime.txt` 与 Cloud Advanced → Python version 一致。
+   - 可设 `OPENAI_HTTP_TRUST_ENV = false` 排除托管环境代理干扰。
+   - 仍失败时到 OpenAI 控制台核对密钥、计费与模型可用性。
