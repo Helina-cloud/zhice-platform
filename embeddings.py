@@ -64,14 +64,18 @@ def build_embeddings() -> Embeddings:
 
     from langchain_openai import OpenAIEmbeddings
 
-    from openai_http import openai_sync_http_client
+    from openai_http import (
+        normalize_openai_compat_base,
+        openai_sync_http_client,
+        without_empty_openai_env_keys,
+    )
 
     http_client = openai_sync_http_client(settings)
     kw: dict = {
         "model": settings.embedding_model,
         "api_key": ek,
-        "base_url": eb,
+        "base_url": normalize_openai_compat_base(eb),
+        "http_client": http_client,
     }
-    if http_client is not None:
-        kw["http_client"] = http_client
-    return OpenAIEmbeddings(**kw)
+    with without_empty_openai_env_keys():
+        return OpenAIEmbeddings(**kw)

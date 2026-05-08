@@ -110,10 +110,14 @@ def ingest(force_rebuild: bool = False) -> int:
                 "• Secrets / .env 里是否真有顶层键 `EMBEDDING_API_KEY`、`EMBEDDING_API_BASE`（嵌套节须展开成这类名字，见 deploy_streamlit_cloud.txt）。\n"
                 "• Base 一般为 OpenAI 兼容服务的根，例如 `https://api.openai.com/v1`（末尾 `/v1` 常需要）。\n"
                 "• 密钥是否对应「嵌入」权限；不要把 DeepSeek 聊天密钥填进 OpenAI 嵌入。\n"
-                "• 可改用本地向量：Secrets 中设 `EMBEDDING_PROVIDER=huggingface`。\n\n"
+                "• 本地 ingest 正常而仅 Streamlit Cloud 报 401：在 Secrets 增加 "
+                "`OPENAI_HTTP_TRUST_ENV=false`，排除托管环境里 HTTP(S)_PROXY 干扰鉴权头；保存后 **Redeploy**。\n"
+                "• 部分中转 API 会按**出口 IP**限制：家用网络能通过，数据中心出口可能被拒（有时也表现为 401）。"
+                "可向服务商确认是否允许云端调用，或 Secrets 设 `EMBEDDING_PROVIDER=huggingface` 走本地向量。\n"
+                "• **勿**写 `OPENAI_API_KEY=\"\"` 占位：空字符串仍写入环境变量，少数 SDK 会与嵌入密钥混淆；不需要请删掉该行。\n\n"
                 f"【诊断·不含密钥】已单独配置 EMBEDDING_API_KEY：{'是' if ek_explicit else '否'}；"
                 f"已单独配置 EMBEDDING_API_BASE：{'是' if eb_explicit else '否'}；"
-                f"实际请求主机：{host}\n"
+                f"实际请求主机：{host}；OPENAI_HTTP_TRUST_ENV={s.openai_http_trust_env}\n"
                 "若「已单独配置」为否，说明应用未读到你的嵌入变量，请检查 Secrets 键名并重新部署。"
             ) from e
         if (

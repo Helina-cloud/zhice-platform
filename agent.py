@@ -40,7 +40,11 @@ with warnings.catch_warnings():
     from langgraph.prebuilt import create_react_agent
 
 from config import get_settings
-from openai_http import openai_sync_http_client
+from openai_http import (
+    normalize_openai_compat_base,
+    openai_sync_http_client,
+    without_empty_openai_env_keys,
+)
 from tools import build_zhice_tools
 from tools.weather_openmeteo import weather_forecast
 
@@ -139,11 +143,11 @@ def build_agent_app():
         "model": settings.chat_model,
         "temperature": 0.1,
         "api_key": ck,
-        "base_url": cb,
+        "base_url": normalize_openai_compat_base(cb),
+        "http_client": http_client,
     }
-    if http_client is not None:
-        llm_kw["http_client"] = http_client
-    llm = ChatOpenAI(**llm_kw)
+    with without_empty_openai_env_keys():
+        llm = ChatOpenAI(**llm_kw)
     tools = list(build_zhice_tools())
     checkpointer = MemorySaver()
     return create_react_agent(

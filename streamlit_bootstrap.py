@@ -20,7 +20,10 @@ def inject_streamlit_secrets() -> None:
         return
 
     def _set_env(key: str, val: object) -> None:
-        if isinstance(val, (str, int, float, bool)):
+        # 云端从网页粘贴 Secrets 时常见首尾空格、UTF-8 BOM，会导致与本地 .env 行为不一致（嵌入 401 等）
+        if isinstance(val, str):
+            os.environ[key] = val.lstrip("\ufeff").strip()
+        elif isinstance(val, (int, float, bool)):
             os.environ[key] = str(val)
 
     try:

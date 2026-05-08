@@ -12,7 +12,11 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI
 
 from config import get_settings
-from openai_http import openai_sync_http_client
+from openai_http import (
+    normalize_openai_compat_base,
+    openai_sync_http_client,
+    without_empty_openai_env_keys,
+)
 from retriever import build_hybrid_retriever
 
 
@@ -49,11 +53,11 @@ def build_rag_chain():
         "model": settings.chat_model,
         "temperature": 0.2,
         "api_key": ck,
-        "base_url": cb,
+        "base_url": normalize_openai_compat_base(cb),
+        "http_client": http_client,
     }
-    if http_client is not None:
-        llm_kw["http_client"] = http_client
-    llm = ChatOpenAI(**llm_kw)
+    with without_empty_openai_env_keys():
+        llm = ChatOpenAI(**llm_kw)
 
     chain = (
         RunnablePassthrough.assign(context=lambda x: format_docs(retriever.invoke(x["question"])))

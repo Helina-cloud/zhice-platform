@@ -25,6 +25,8 @@
    - 不要用 export KEY=... 这种 shell 写法
    - 密钥里若有双引号，整段密钥改用单引号包裹：OPENAI_API_KEY = 'sk-..."...'
    - 不要在句尾加逗号；不要用 # 注释写在半截引号里
+   - 不要写 OPENAI_API_KEY = ""（空字符串仍会生效）；不用对话密钥时请删掉该行，
+     勿留占位空串，否则会干扰嵌入时的 Authorization（云端嵌入易报 401）。
 
    嵌入（二选一）：
    - 走云端 OpenAI 兼容嵌入：顶层键名必须为 `EMBEDDING_API_KEY`、`EMBEDDING_API_BASE`
@@ -40,3 +42,13 @@
 6) 刷新页面重试。若出现 503：多为上游 LLM/中转繁忙，与向量库无关，稍后重试或换模型。
 
 7) 本地调试仍用：streamlit run streamlit_app.py
+
+8) 若本地 `python ingest.py` 正常，但云端嵌入报 401：
+   - 逐项对照「本地 .env」与「App Secrets」：键名须一致（如 EMBEDDING_API_KEY），值须与本地相同；
+     改 Secrets 后须 **Redeploy**，不要只刷新页面。
+   - 仓库根目录 `runtime.txt` 与 Cloud Advanced → Python version 一致（避免依赖版本漂移）。
+   - 新版已在注入 Secrets 时去掉首尾空格与 UTF-8 BOM；仍失败时在云雾控制台核对密钥与余额。
+   - 可在 Secrets 增加一行：`OPENAI_HTTP_TRUST_ENV = false`（布尔型，见 TOML），避免托管环境代理变量干扰；
+     部署后看页面错误里的诊断行 `OPENAI_HTTP_TRUST_ENV=...` 是否为 False。
+   - 若仍 401：部分中转商限制数据中心出口 IP，家用网络能通过、云端不能；可改用 `EMBEDDING_PROVIDER=huggingface`
+     或向中转商确认云端是否可用。
