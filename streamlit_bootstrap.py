@@ -10,13 +10,17 @@ def inject_streamlit_secrets() -> None:
     """把 Streamlit Secrets（TOML）递归展开并写入 os.environ，键名为大写路径（如 OPENAI_API_KEY）。"""
     try:
         import streamlit as st  # noqa: PLC0415
+        from streamlit.errors import StreamlitSecretNotFoundError  # noqa: PLC0415
     except ImportError:
         return
     try:
         sec = st.secrets
+        # 本地无 .streamlit/secrets.toml 时，__len__/__bool__ 会解析并抛 StreamlitSecretNotFoundError
+        if not sec:
+            return
     except RuntimeError:
         return
-    if not sec:
+    except StreamlitSecretNotFoundError:
         return
 
     def _set_env(key: str, val: object) -> None:
