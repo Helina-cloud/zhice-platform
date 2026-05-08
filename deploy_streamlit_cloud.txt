@@ -44,5 +44,5 @@
 8) 若云端 ingest 报错（401 / 404 等）：
    - 对照仓库根目录 `.env.example` 与 App Secrets，改完后 **Redeploy**（不要只刷新页面）。
    - `runtime.txt` 与 Cloud Advanced → Python version 一致。
-   - 可设 `OPENAI_HTTP_TRUST_ENV = false` 排除托管环境代理干扰。
+   - 可设 `OPENAI_HTTP_TRUST_ENV = false`（TOML 小写布尔）排除托管环境代理干扰；注入后为字符串，项目已做 false/true 归一化。
    - 仍失败时到 OpenAI 控制台核对密钥、计费与模型可用性。

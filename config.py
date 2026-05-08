@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 固定为「与本文件同目录」的 .env，避免从其它 cwd 运行 ingest 时读不到配置（此时 EMBEDDING_API_BASE 会失效）。
@@ -70,6 +70,18 @@ class Settings(BaseSettings):
         validation_alias="OPENAI_HTTP_TRUST_ENV",
     )
     openai_proxy: str | None = Field(default=None, validation_alias="OPENAI_PROXY")
+
+    @field_validator("openai_http_trust_env", "openai_http_verify_ssl", mode="before")
+    @classmethod
+    def _coerce_bool_from_env(cls, v: object) -> object:
+        """os.environ 与 Streamlit Secrets 注入后均为字符串，避免 \"False\" 被当成真。"""
+        if isinstance(v, str):
+            s = v.strip().lower()
+            if s in ("0", "false", "no", "off", ""):
+                return False
+            if s in ("1", "true", "yes", "on"):
+                return True
+        return v
 
     def chat_llm_params(self) -> tuple[str | None, str | None]:
         """(api_key, base_url)，供 ChatOpenAI 等对话模型使用。"""

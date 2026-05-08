@@ -130,7 +130,12 @@ def ingest(force_rebuild: bool = False) -> int:
                 f"【诊断·不含密钥】已单独配置 EMBEDDING_API_KEY：{'是' if ek_explicit else '否'}；"
                 f"已单独配置 EMBEDDING_API_BASE：{'是' if eb_explicit else '否'}；"
                 f"实际请求主机：{host}；OPENAI_HTTP_TRUST_ENV={s.openai_http_trust_env}\n"
-                "若「已单独配置」为否，说明应用未读到你的嵌入变量，请检查 Secrets 键名并重新部署。"
+                + (
+                    "若上两项为「否」，表示嵌入与对话共用 `OPENAI_API_KEY` / `OPENAI_API_BASE`（属正常）；"
+                    "401 多为该密钥在本网关无嵌入权限、余额不足、或出口 IP 被拒，请到控制台核对或换官方 OpenAI 测试。\n"
+                    if not ek_explicit and not eb_explicit
+                    else "若上两项应为「是」却为「否」，说明未读到独立嵌入变量，请检查 Secrets 键名并 **Redeploy**。\n"
+                )
             ) from e
         if (
             "ssl" in err
