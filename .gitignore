@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+data/vector_db/
+.tmp_ch/
+.idea/
+.cursor/

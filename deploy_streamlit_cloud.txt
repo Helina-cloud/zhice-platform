@@ -1,0 +1,32 @@
+智策 · 部署到 Streamlit Community Cloud（简要步骤）
+
+1) 把代码推到 GitHub（公开仓库免费档可用；私有需付费档）。
+
+2) 打开 https://share.streamlit.io ，用 GitHub 登录，「New app」。
+
+3) 填写：
+   - Repository：你的仓库
+   - Branch：main（或你的默认分支）
+   - Main file path：streamlit_app.py
+
+4) Advanced settings → Python version：与仓库根目录 runtime.txt 一致（当前为 3.11）。
+
+5) App secrets（必选）
+   在 Secrets 编辑框里写入 TOML，与本地 .env 同名即可（顶层键不要嵌套太深，推荐扁平）：
+
+   OPENAI_API_KEY = "你的对话密钥或中转密钥"
+   OPENAI_API_BASE = "https://api.deepseek.com"
+   CHAT_MODEL = "deepseek-chat"
+
+   # 嵌入：云端推荐 huggingface，避免 OpenAI 嵌入额度与 TLS 问题
+   EMBEDDING_PROVIDER = "huggingface"
+
+   # 若仍用云端嵌入 OpenAI 兼容接口，再补 EMBEDDING_API_KEY / EMBEDDING_API_BASE
+
+   保存后重新 Deploy。应用启动时会：
+   - 把这些变量注入环境变量（streamlit_bootstrap.inject_streamlit_secrets）
+   - 若 data/vector_db 不存在，自动跑一次 ingest（首次较慢，需下载 sentence-transformers 模型）
+
+6) 刷新页面重试。若出现 503：多为上游 LLM/中转繁忙，与向量库无关，稍后重试或换模型。
+
+7) 本地调试仍用：streamlit run streamlit_app.py
