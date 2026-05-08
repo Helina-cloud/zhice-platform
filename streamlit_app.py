@@ -16,7 +16,11 @@ import uuid
 
 import streamlit as st
 
-from streamlit_bootstrap import inject_streamlit_secrets, run_ingest_if_needed
+from streamlit_bootstrap import (
+    apply_embedding_fallback_if_no_api_key,
+    inject_streamlit_secrets,
+    run_ingest_if_needed,
+)
 
 
 def _init_state() -> None:
@@ -52,6 +56,10 @@ def main() -> None:
 
     # Streamlit Cloud：仪表盘里配置的 Secrets → 环境变量，供 pydantic-settings 读取（与本地 .env 等价）。
     inject_streamlit_secrets()
+
+    emb_hint = apply_embedding_fallback_if_no_api_key()
+    if emb_hint.strip():
+        st.info(emb_hint)
 
     ok_idx, idx_msg = run_ingest_if_needed(show_streamlit_ui=True)
     if not ok_idx:

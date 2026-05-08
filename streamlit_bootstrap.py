@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def inject_streamlit_secrets() -> None:
-    """在导入依赖 OPENAI_* / EMBEDDING_* 的配置之前调用。"""
+    """把 Streamlit Secrets（TOML）递归展开并写入 os.environ，键名为大写路径（如 OPENAI_API_KEY）。"""
     try:
         import streamlit as st  # noqa: PLC0415
     except ImportError:
@@ -23,13 +23,45 @@ def inject_streamlit_secrets() -> None:
         if isinstance(val, (str, int, float, bool)):
             os.environ[key] = str(val)
 
-    for key in sec:
-        val = sec[key]
-        if isinstance(val, dict):
-            for subk, subv in val.items():
-                _set_env(f"{key}_{subk}".upper(), subv)
-        else:
-            _set_env(str(key), val)
+    try:
+        raw: dict = dict(sec)
+    except Exception:
+        raw = {k: sec[k] for k in sec}
+
+    def _walk(prefix: str, obj: object) -> None:
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                pk = f"{prefix}_{k}" if prefix else str(k)
+                _walk(pk, v)
+        elif prefix:
+            _set_env(prefix.upper(), obj)
+
+    _walk("", raw)
+
+
+def apply_embedding_fallback_if_no_api_key() -> str:
+    """
+    嵌入走 OpenAI 兼容接口时必须提供 api_key。
+    若未配置任何嵌入密钥，则设置 EMBEDDING_PROVIDER=huggingface，避免 OpenAIEmbeddings 初始化崩溃。
+    返回非空字符串时表示已向用户展示提示文案。
+    """
+    from config import get_settings
+
+    s = get_settings()
+    prov = (s.embedding_provider or "openai").strip().lower()
+    if prov == "huggingface":
+        return ""
+
+    ek, _ = s.embedding_llm_params()
+    if (ek or "").strip():
+        return ""
+
+    os.environ["EMBEDDING_PROVIDER"] = "huggingface"
+    return (
+        "未检测到可用于「文本嵌入」的 API 密钥，已自动改用 **HuggingFace 本地向量模型** 构建索引"
+        "（首次需下载模型，约数分钟）。若你希望继续用 OpenAI 嵌入，请在 Secrets 中配置 "
+        "`EMBEDDING_API_KEY` 或可用的 `OPENAI_API_KEY`（与嵌入网关一致）。"
+    )
 
 
 def vector_index_missing(vector_store_dir: Path) -> bool:
@@ -53,12 +85,19 @@ def run_ingest_if_needed(*, show_streamlit_ui: bool) -> tuple[bool, str]:
     if show_streamlit_ui:
         import streamlit as st  # noqa: PLC0415
 
-        with st.spinner("首次部署：正在根据 data/docs 构建向量索引（可能需要几分钟）…"):
-            n = ingest(force_rebuild=False)
+        try:
+            with st.spinner("首次部署：正在根据 data/docs 构建向量索引（可能需要几分钟）…"):
+                n = ingest(force_rebuild=False)
+        except Exception as e:
+            # 若不捕获，Streamlit Cloud 会把异常正文涂掉，用户看不到 ingest 里的友好说明
+            return False, str(e)
         if n <= 0:
             return False, "ingest 未生成任何分块，请检查仓库内 data/docs 是否有 .md/.txt/.pdf。"
         return True, ""
-    n = ingest(force_rebuild=False)
+    try:
+        n = ingest(force_rebuild=False)
+    except Exception as e:
+        return False, str(e)
     if n <= 0:
         return False, "ingest 未生成任何分块。"
     return True, ""

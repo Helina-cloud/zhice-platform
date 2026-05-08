@@ -30,6 +30,18 @@ def build_embeddings() -> Embeddings:
     if provider != "openai":
         raise ValueError(f"未知的 EMBEDDING_PROVIDER={provider!r}，请使用 openai 或 huggingface。")
 
+    # 对话用 DeepSeek 时 OPENAI_API_KEY 是 DeepSeek 的，不能拿去打 OpenAI 官方嵌入 → 401
+    has_embed_key = bool((settings.embedding_api_key or "").strip())
+    if _is_deepseek_base(settings.openai_api_base) and not has_embed_key:
+        try:
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+        except ImportError as e:
+            raise ImportError(
+                "对话为 DeepSeek 且未单独配置 EMBEDDING_API_KEY 时，嵌入会改用 HuggingFace，"
+                "请安装: pip install sentence-transformers"
+            ) from e
+        return HuggingFaceEmbeddings(model_name=settings.huggingface_embedding_model)
+
     ek, eb = settings.embedding_llm_params()
 
     # 实际用于嵌入请求的 base（embedding_llm_params 会回落到 OPENAI_API_BASE）
@@ -41,6 +53,13 @@ def build_embeddings() -> Embeddings:
             "文件编码建议 UTF-8（Windows 记事本另存为 UTF-8）。\n"
             "• 若系统环境变量里有空的 EMBEDDING_API_BASE=，请删掉该变量（本项目的 Settings 已启用 env_ignore_empty）。\n\n"
             "或改用本地向量：EMBEDDING_PROVIDER=huggingface ，并 pip install sentence-transformers。\n"
+        )
+
+    if not (ek or "").strip():
+        raise ValueError(
+            "嵌入模式为 openai，但未配置可用 API 密钥。"
+            "请在 .env 或 Streamlit Secrets 中设置 EMBEDDING_API_KEY（或能与嵌入 base 共用的 OPENAI_API_KEY），"
+            "或设置 EMBEDDING_PROVIDER=huggingface 使用本地向量模型。"
         )
 
     from langchain_openai import OpenAIEmbeddings

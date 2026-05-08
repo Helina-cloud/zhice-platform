@@ -11,21 +11,31 @@
 
 4) Advanced settings → Python version：与仓库根目录 runtime.txt 一致（当前为 3.11）。
 
-5) App secrets（必选）
-   在 Secrets 编辑框里写入 TOML，与本地 .env 同名即可（顶层键不要嵌套太深，推荐扁平）：
+5) App secrets（必须是合法 TOML，否则会提示 Invalid format）
 
-   OPENAI_API_KEY = "你的对话密钥或中转密钥"
+   可直接粘贴下面模板（英文双引号；冒号后空格；每行一条；不要中文标点引号）：
+
+   OPENAI_API_KEY = "paste-your-key-here"
    OPENAI_API_BASE = "https://api.deepseek.com"
    CHAT_MODEL = "deepseek-chat"
-
-   # 嵌入：云端推荐 huggingface，避免 OpenAI 嵌入额度与 TLS 问题
    EMBEDDING_PROVIDER = "huggingface"
 
-   # 若仍用云端嵌入 OpenAI 兼容接口，再补 EMBEDDING_API_KEY / EMBEDDING_API_BASE
+   注意：
+   - 字符串必须用英文双引号 "..."，不要用中文引号 「」 "" ''
+   - 不要用 export KEY=... 这种 shell 写法
+   - 密钥里若有双引号，整段密钥改用单引号包裹：OPENAI_API_KEY = 'sk-..."...'
+   - 不要在句尾加逗号；不要用 # 注释写在半截引号里
+
+   嵌入（二选一）：
+   - 走云端 OpenAI 兼容嵌入：顶层键名必须为 `EMBEDDING_API_KEY`、`EMBEDDING_API_BASE`
+     （例如 Base = "https://api.openai.com/v1"）。若写在 TOML 节里，须能展开成上述环境变量名
+     （如 [embedding] 下 api_key → EMBEDDING_API_KEY）。
+   - 走本地向量：设 `EMBEDDING_PROVIDER = "huggingface"`；仅 DeepSeek 聊天且未单独配嵌入密钥时，
+     程序也会自动改用 HuggingFace。
 
    保存后重新 Deploy。应用启动时会：
-   - 把这些变量注入环境变量（streamlit_bootstrap.inject_streamlit_secrets）
-   - 若 data/vector_db 不存在，自动跑一次 ingest（首次较慢，需下载 sentence-transformers 模型）
+   - 把这些变量注入环境变量（inject_streamlit_secrets）
+   - 若 data/vector_db 不存在，自动跑一次 ingest
 
 6) 刷新页面重试。若出现 503：多为上游 LLM/中转繁忙，与向量库无关，稍后重试或换模型。
 

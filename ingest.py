@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from urllib.parse import urlparse
 
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader, TextLoader
 from langchain_community.vectorstores import FAISS
@@ -98,15 +99,22 @@ def ingest(force_rebuild: bool = False) -> int:
             or "incorrect api key" in err
             or "authentication" in err
         ):
+            s = get_settings()
+            ek_explicit = bool((s.embedding_api_key or "").strip())
+            eb_explicit = bool((s.embedding_api_base or "").strip())
+            _k, eff_base = s.embedding_llm_params()
+            host = urlparse(eff_base or "").netloc or "（未能解析 base）"
             raise RuntimeError(
-                "嵌入接口返回 401：当前用于 OpenAI embeddings 的 API Key 无效或未授权。\n\n"
-                "请检查项目根目录 .env：\n"
-                "• `EMBEDDING_API_KEY` 必须是 OpenAI 平台创建的密钥（https://platform.openai.com/api-keys），"
-                "不要把 DeepSeek 的 sk- 填在这里。\n"
-                "• 密钥是否完整复制、前后无空格；若刚轮换过 key，请更新 .env 后重试。\n"
-                "• `EMBEDDING_API_BASE` 应与该密钥所属服务一致（一般为 https://api.openai.com/v1）。\n\n"
-                "若不想使用 OpenAI 嵌入：设置 EMBEDDING_PROVIDER=huggingface 并 "
-                "`pip install sentence-transformers`，再执行 python ingest.py --force。\n"
+                "嵌入接口返回 401：当前密钥未被该网关接受（Key、Base、路径须同属一家服务）。\n\n"
+                "排查：\n"
+                "• Secrets / .env 里是否真有顶层键 `EMBEDDING_API_KEY`、`EMBEDDING_API_BASE`（嵌套节须展开成这类名字，见 deploy_streamlit_cloud.txt）。\n"
+                "• Base 一般为 OpenAI 兼容服务的根，例如 `https://api.openai.com/v1`（末尾 `/v1` 常需要）。\n"
+                "• 密钥是否对应「嵌入」权限；不要把 DeepSeek 聊天密钥填进 OpenAI 嵌入。\n"
+                "• 可改用本地向量：Secrets 中设 `EMBEDDING_PROVIDER=huggingface`。\n\n"
+                f"【诊断·不含密钥】已单独配置 EMBEDDING_API_KEY：{'是' if ek_explicit else '否'}；"
+                f"已单独配置 EMBEDDING_API_BASE：{'是' if eb_explicit else '否'}；"
+                f"实际请求主机：{host}\n"
+                "若「已单独配置」为否，说明应用未读到你的嵌入变量，请检查 Secrets 键名并重新部署。"
             ) from e
         if (
             "ssl" in err
